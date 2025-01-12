@@ -1,21 +1,40 @@
 const std = @import("std");
 const ray = @import("raylib.zig");
+const SCREEN_HEIGHT = 450;
+const SCREEN_WIDTH = 800;
+
+// App state
+var index: c_int = 0;
+var data: [80]u32 = undefined;
+var sorted = 0;
+
+// generate 80 value for arr
+fn init() void {
+    var prng = std.rand.DefaultPrng.init(blk: {
+        const seed: u64 = 102333;
+        break :blk seed;
+    });
+    const rand = prng.random();
+    for (0..data.len) |i| {
+        data[i] = rand.int(u32) % 450;
+    }
+}
 
 pub fn main() !void {
+    init();
     try ray_main();
     try old_main(); // remove this if you don't need it
-    try hints();
+    // try hints();
 }
 
 fn ray_main() !void {
-    // const monitor = ray.GetCurrentMonitor();
-    // const width = ray.GetMonitorWidth(monitor);
-    // const height = ray.GetMonitorHeight(monitor);
-    const width = 800;
-    const height = 450;
+    const monitor = ray.GetCurrentMonitor();
+    const width = ray.GetMonitorWidth(monitor);
+    const height = ray.GetMonitorHeight(monitor);
+    std.debug.print("Info: screen w:{d}, h:{d}", .{ width, height });
 
     ray.SetConfigFlags(ray.FLAG_MSAA_4X_HINT | ray.FLAG_VSYNC_HINT);
-    ray.InitWindow(width, height, "zig raylib example");
+    ray.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "8 sort algorithms");
     defer ray.CloseWindow();
 
     var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 8 }){};
@@ -28,65 +47,183 @@ fn ray_main() !void {
     }
 
     const colors = [_]ray.Color{ ray.GRAY, ray.RED, ray.GOLD, ray.LIME, ray.BLUE, ray.VIOLET, ray.BROWN };
-    // const colors_len: i32 = @intCast(colors.len);
-    // var current_color: i32 = 2;
-    // var hint = true;
-
     while (!ray.WindowShouldClose()) {
-        // input
-        // var delta: i2 = 0;
-        // if (ray.IsKeyPressed(ray.KEY_UP)) delta += 1;
-        // if (ray.IsKeyPressed(ray.KEY_DOWN)) delta -= 1;
-        // if (delta != 0) {
-        //     current_color = @mod(current_color + delta, colors_len);
-        //     hint = false;
-        // }
-
         // draw
-        { 
+        {
             ray.BeginDrawing();
             defer ray.EndDrawing();
 
             ray.ClearBackground(colors[@intCast(2)]);
 
+            // simple_sort();
+            // bubble_sort();
+            // selection_sort();
+            // insertion_sort();
+            // quick_sort(&data, data.len/2, data.len/2);
+            bubble_sort();
+
             draw_list();
-            //            
-            // ray.DrawRectangle(10,  0, 10,100, ray.RED);
-
-            // if (hint) ray.DrawText("press up or down arrow to change background color", 120, 140, 20, ray.BLUE);
-            // ray.DrawText("Congrats! You created your first window!", 190, 200, 20, ray.BLACK);
-
-            // // now lets use an allocator to create some dynamic text
-            // // pay attention to the Z in `allocPrintZ` that is a convention
-            // // for functions that return zero terminated strings
-            // const seconds: u32 = @intFromFloat(ray.GetTime());
-            // const dynamic = try std.fmt.allocPrintZ(allocator, "running since {d} seconds", .{seconds});
-            // defer allocator.free(dynamic);
-            // ray.DrawText(dynamic, 300, 250, 20, ray.WHITE);
-
-            // ray.DrawFPS(width - 100, 10);
+            std.time.sleep(1_00_000_000);
         }
     }
 }
 
-var i: c_int  = 0;
-var arr: [5]u32 = .{30, 70, 20, 40, 50};
+fn bucket_sort() void {
+    const length = data.len;
+    const bucket_count = 10; // Number of buckets
+    var buckets: [bucket_count][]u32 = undefined; // Array of buckets
 
+    // Initialize buckets
+    for (0..bucket_count) |iIndex| {
+        buckets[iIndex] = &[_]u32{}; // Create an empty bucket
+    }
 
-fn draw_list() void {
-    for (arr, 0..) |item, x| {
-        draw_bar(x, item);
+    // Distribute input array values into bucketsj
+    for (0..length) |j| {
+        const index_bucket: usize = @intCast(10 * data[j]); // Determine bucket index
+        if (index_bucket < bucket_count) {
+            buckets[index_bucket] = buckets[index_bucket] ++ data[j]; // Append to the bucket
+        }
+    }
+
+    // Sort each bucket and concatenate the results
+    var k: usize = 0;
+    for (0..bucket_count) |i| {
+        // Sort the current bucket using a simple sort (insertion sort for example)
+        const sorted_bucket = std.sort.sort(u32, buckets[i]);
+        for (0..sorted_bucket) |j| {
+            data[k] = sorted_bucket[j];
+            k += 1;
+        }
     }
 }
 
-fn draw_bar(x:usize, he: u32) void{
-    i = i + 1;
-    const t: c_int = @intCast(x * 10);
-    const k: c_int = i + t;
-    ray.DrawRectangle(k, 0, 10, @intCast(he), ray.RED);
-    if (i > 800) {
-        i = 0;
+fn insertion_sort() void {
+    const length = data.len;
+
+    for (0..length) |i| {
+        const tmp = data[i];
+        var min_index = i;
+
+        while (min_index > 0 and tmp < data[min_index - 1]) {
+            data[min_index] = data[min_index - 1];
+            min_index -= 1;
+            break;
+        }
+        data[min_index] = tmp;
     }
+}
+
+fn partition(data_arr: *[*]u32, left: usize, right: usize) usize {
+    const pivot = data_arr[left];
+    var leftIndex = left + 1;
+    var rightIndex = right;
+
+    while (true) {
+        while (leftIndex <= rightIndex and data_arr[leftIndex] <= pivot) {
+            leftIndex += 1;
+        }
+        while (rightIndex >= leftIndex and data_arr[rightIndex] >= pivot) {
+            rightIndex -= 1;
+        }
+        if (rightIndex <= leftIndex) {
+            break;
+        }
+        // Swap data[leftIndex] and data[rightIndex]
+        const temp = data_arr[leftIndex];
+        data_arr[leftIndex] = data_arr[rightIndex];
+        data_arr[rightIndex] = temp;
+        break;
+    }
+
+    // Swap pivot with data[rightIndex]
+    const temp = data_arr[left];
+    data_arr[left] = data_arr[rightIndex];
+    data_arr[rightIndex] = temp;
+    return rightIndex;
+}
+
+fn quick_sort(data_arr: []u32, left: usize, right: usize) void {
+    if (right <= left) {
+        return;
+    } else {
+        const pivot = partition(data_arr, left, right);
+        quick_sort(data_arr, left, pivot - 1);
+        quick_sort(data_arr, pivot + 1, right);
+    }
+}
+
+fn bubble_sort() void {
+    const length = data.len;
+    for (0..length) |i| {
+        var swapped = false;
+        for (0..(length - i - 1)) |j| {
+            if (data[j] > data[j + 1]) {
+                // Swap the elements
+                const temp = data[j];
+                data[j] = data[j + 1];
+                data[j + 1] = temp;
+                swapped = true;
+                break;
+            }
+        }
+    }
+}
+
+//Simple sort
+fn simple_sort() void {
+    for (data, 0..) |item, i| {
+        if (i < (data.len - 1)) {
+            if (item > data[i + 1]) {
+                const tmp = item;
+                data[i] = data[i + 1];
+                data[i + 1] = tmp;
+                break;
+            }
+        }
+    }
+}
+
+fn selection_sort() void {
+    const length = data.len;
+
+    for (0..length) |i| {
+        var minIndex = i;
+
+        for (i..length) |j| {
+            if (data[j] < data[minIndex]) {
+                minIndex = j;
+            }
+        }
+
+        if (minIndex != i) {
+            // Swap the elements
+            const temp = data[i];
+            data[i] = data[minIndex];
+            data[minIndex] = temp;
+            break;
+            // Print the current state of the array
+            // std.debug.print("Current state: ", .{});
+            // for (data) |value| {
+            //     std.debug.print("{} ", .{value});
+            // }
+            // std.debug.print("\n", .{});
+        }
+    }
+}
+
+fn draw_list() void {
+    for (data, 0..) |he, x| {
+        draw_bar(he, x);
+    }
+}
+
+fn draw_bar(he: u32, x: usize) void {
+    const bar_width = 10;
+    const bar_margin = 1;
+    const xx: c_int = @intCast(x * bar_width + x * bar_margin);
+    // std.debug.print("fmt {d}", .{ xx });
+    ray.DrawRectangle(xx, @intCast(SCREEN_HEIGHT - he), bar_width, @intCast(he), ray.BLUE);
 }
 
 // remove this function if you don't need it
@@ -106,20 +243,20 @@ fn old_main() !void {
     try bw.flush(); // don't forget to flush!
 }
 
-fn hints() !void {
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+// fn hints() !void {
+//     const stdout_file = std.io.getStdOut().writer();
+//     var bw = std.io.bufferedWriter(stdout_file);
+//     const stdout = bw.writer();
 
-    try stdout.print("\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n", .{});
-    try stdout.print("Here are some hints:\n", .{});
-    try stdout.print("Run `zig build --help` to see all the options\n", .{});
-    try stdout.print("Run `zig build -Doptimize=ReleaseSmall` for a small release build\n", .{});
-    try stdout.print("Run `zig build -Doptimize=ReleaseSmall -Dstrip=true` for a smaller release build, that strips symbols\n", .{});
-    try stdout.print("Run `zig build -Draylib-optimize=ReleaseFast` for a debug build of your application, that uses a fast release of raylib (if you are only debugging your code)\n", .{});
+//     try stdout.print("\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n", .{});
+//     try stdout.print("Here are some hints:\n", .{});
+//     try stdout.print("Run `zig build --help` to see all the options\n", .{});
+//     try stdout.print("Run `zig build -Doptimize=ReleaseSmall` for a small release build\n", .{});
+//     try stdout.print("Run `zig build -Doptimize=ReleaseSmall -Dstrip=true` for a smaller release build, that strips symbols\n", .{});
+//     try stdout.print("Run `zig build -Draylib-optimize=ReleaseFast` for a debug build of your application, that uses a fast release of raylib (if you are only debugging your code)\n", .{});
 
-    try bw.flush(); // don't forget to flush!
-}
+//     try bw.flush(); // don't forget to flush!
+// }
 
 test "simple test" {
     var list = std.ArrayList(i32).init(std.testing.allocator);
